@@ -128,6 +128,7 @@ function readInstalled (folder, opts, cb) {
     opts.log = function () {}
 
   opts.dev = !!opts.dev
+  opts.tree = !!opts.tree
   opts.realpathSeen = {}
   opts.findUnmetSeen = []
 
@@ -139,6 +140,11 @@ function readInstalled (folder, opts, cb) {
     resolveInheritance(obj, opts)
     obj.root = true
     unmarkExtraneous(obj, opts)
+    if (opts.tree) {
+      // builds a tree that precisely represents the dependency graph of
+      // packages. removes extraneous packages.
+      buildDependencyTree(obj, opts)
+    }
     cb(null, obj)
   })
 }
@@ -395,6 +401,54 @@ function findDep (obj, d) {
     r = r.link ? null : r.parent
   }
   return found
+}
+
+// Builds a tree formed by direct relationships, equivalent to given
+// dependencies.
+function buildDependencyTree(obj, opts) {
+  let allPackages = []
+  function recurse(cur) {
+    if (cur._reachable) {
+      return
+    }
+    cur._reachable = true
+    allPackages.push(Object.values(cur.dependencies))
+    debug('processing tree from', cur.realName, cur._dependencies)
+    const newDependencies = {}
+    Object.keys(cur._dependencies).forEach((name) => {
+      const pkg = findDep(cur, name)
+      if (pkg == null) {
+        debug('unresolvable package', name)
+      } else {
+        newDependencies[name] = pkg
+      }
+    })
+    Object.values(newDependencies).forEach((dep) => {
+      recurse(dep)
+    })
+    cur.dependencies = newDependencies;
+  }
+
+  recurse(obj)
+
+  // makes sure that !_reachable and extraneous is equivalent
+  allPackages.forEach((pkgSet) => {
+    pkgSet.forEach((pkg) => {
+      if (
+        pkg.extraneous !== undefined &&
+        !pkg._reachable !== !!pkg.extraneous
+      ) {
+        opts.log(
+          '_reachable vs extraneous discrepancy at %s@%s',
+          pkg.realName,
+          pkg.version,
+          !pkg._reachable,
+          'vs',
+          !!pkg.extraneous,
+        )
+      }
+    })
+  })
 }
 
 function copy (obj) {
