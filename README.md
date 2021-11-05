@@ -14,7 +14,7 @@ The second argument is now an `Object` that contains the following keys:
  * `depth` optional, defaults to Infinity
  * `log` optional log Function
  * `dev` optional, default false, set to true to include devDependencies
- * `tree` optional, default false, set to true to build a tree precisely representing direct relationships between package.json files. no extraneous packages are outputted
+ * `tree` optional, default false, set to true to build a tree precisely representing direct relationships among package.json files. no extraneous packages are outputted
 
 ## Usage
 
